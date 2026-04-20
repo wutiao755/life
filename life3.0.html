@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人生仪表盘</title>
+
+<style>
+body { font-family:-apple-system; background:#0f0f0f; color:white; padding:16px;}
+button { width:100%; padding:14px; margin:6px 0; border-radius:10px; background:#1f1f1f; color:white; border:none;}
+textarea,input { width:100%; margin:6px 0; border-radius:8px; padding:8px;}
+.card { background:#1a1a1a; padding:10px; margin:8px 0; border-radius:10px;}
+.hidden { display:none;}
+.delete { background:#5a1f1f;}
+</style>
+</head>
+
+<body>
+
+<h2>人生仪表盘</h2>
+
+<!-- 首页 -->
+<div id="home">
+<button onclick="goPage('long')">长期自问</button>
+<button onclick="goPage('daily')">每天自问</button>
+<button onclick="goPage('knowledge')">知识库</button>
+<button onclick="goPage('trash')">思维回收站</button>
+</div>
+
+<!-- 长期 -->
+<div id="long" class="hidden">
+
+<h3>长期自问</h3>
+
+<input id="newQuestion" placeholder="新增自问问题">
+<button onclick="addQuestion()">保存新问题</button>
+
+<div id="questionList"></div>
+
+<button onclick="goHome()">返回</button>
+</div>
+
+<!-- 历史 -->
+<div id="history" class="hidden">
+<h3>历史回答</h3>
+
+<div class="card">
+<p>总结（可修改）</p>
+<textarea id="summary"></textarea>
+<button onclick="saveSummary()">保存总结</button>
+</div>
+
+<div id="historyList"></div>
+
+<button onclick="goPage('long')">返回</button>
+</div>
+
+<!-- 每日 -->
+<div id="daily" class="hidden">
+<h3>每日记录</h3>
+
+<textarea id="main" placeholder="今天最重要的一件事"></textarea>
+
+<button onclick="saveDaily()">提交</button>
+<button onclick="viewDaily()">查看记录</button>
+<button onclick="goHome()">返回</button>
+</div>
+
+<div id="dailyHistory" class="hidden">
+<h3>每日历史</h3>
+<div id="dailyList"></div>
+<button onclick="goPage('daily')">返回</button>
+</div>
+
+<!-- 知识 -->
+<div id="knowledge" class="hidden">
+<h3>知识库</h3>
+
+<input id="author" placeholder="作者">
+<textarea id="idea" placeholder="观点"></textarea>
+
+<button onclick="saveKnowledge()">保存</button>
+<button onclick="viewKnowledge()">历史记录</button>
+<button onclick="goHome()">返回</button>
+</div>
+
+<div id="knowledgeHistory" class="hidden">
+<h3>知识历史</h3>
+<div id="knowledgeList"></div>
+<button onclick="goPage('knowledge')">返回</button>
+</div>
+
+<!-- 回收站 -->
+<div id="trash" class="hidden">
+<h3>思维回收站</h3>
+<div id="trashList"></div>
+<button onclick="goHome()">返回</button>
+</div>
+
+<script>
+
+/* 页面控制 */
+function goPage(id){
+['home','long','history','daily','dailyHistory','knowledge','knowledgeHistory','trash']
+.forEach(p=>document.getElementById(p).classList.add('hidden'));
+document.getElementById(id).classList.remove('hidden');
+
+if(id==='long') loadQuestions();
+if(id==='trash') loadTrash();
+}
+
+function goHome(){ goPage('home'); }
+
+/* ========= 长期问题 ========= */
+
+let currentKey="";
+
+function loadQuestions(){
+let list=document.getElementById('questionList');
+let questions=JSON.parse(localStorage.getItem('questions')||"[]");
+
+if(questions.length===0){
+questions=[
+{id:'q1',text:'什么值得做10年？'},
+{id:'q2',text:'你的核心优势是什么？'},
+{id:'q3',text:'最大风险是什么？'}
+];
+localStorage.setItem('questions',JSON.stringify(questions));
+}
+
+list.innerHTML=questions.map(q=>`
+<div class="card">
+<p>${q.text}</p>
+<textarea id="${q.id}"></textarea>
+<button onclick="saveAnswer('${q.id}')">保存</button>
+<button onclick="openHistory('${q.id}')">历史回答</button>
+</div>
+`).join('');
+}
+
+function addQuestion(){
+let val=newQuestion.value;
+if(!val){alert("写点问题");return;}
+
+let questions=JSON.parse(localStorage.getItem('questions')||"[]");
+
+let id='q'+Date.now();
+questions.push({id,text:val});
+
+localStorage.setItem('questions',JSON.stringify(questions));
+
+newQuestion.value="";
+loadQuestions();
+}
+
+/* 保存回答 */
+function saveAnswer(key){
+let text=document.getElementById(key).value;
+if(!text){alert("写点内容");return;}
+
+let data=JSON.parse(localStorage.getItem(key)||"[]");
+
+data.unshift({time:new Date().toLocaleString(),text});
+
+localStorage.setItem(key,JSON.stringify(data));
+
+document.getElementById(key).value="";
+alert("done well");
+}
+
+/* 打开历史 */
+function openHistory(key){
+currentKey=key;
+goPage('history');
+
+summary.value=localStorage.getItem(key+"_summary")||"";
+
+let data=JSON.parse(localStorage.getItem(key)||"[]");
+
+historyList.innerHTML=data.map((d,i)=>`
+<div class="card">
+${d.time}<br>${d.text}
+<button class="delete" onclick="deleteRecord('${key}',${i})">删除</button>
+</div>
+`).join('');
+}
+
+/* 删除记录 -> 回收站 */
+function deleteRecord(key,index){
+let data=JSON.parse(localStorage.getItem(key)||"[]");
+let trash=JSON.parse(localStorage.getItem('trash')||"[]");
+
+let removed=data.splice(index,1)[0];
+
+trash.unshift({...removed,from:key});
+
+localStorage.setItem(key,JSON.stringify(data));
+localStorage.setItem('trash',JSON.stringify(trash));
+
+openHistory(key);
+}
+
+/* 保存总结 */
+function saveSummary(){
+localStorage.setItem(currentKey+"_summary",summary.value);
+alert("done well");
+}
+
+/* ========= 每日 ========= */
+
+function saveDaily(){
+let entry={time:new Date().toLocaleString(),main:main.value};
+
+if(!entry.main){alert("写点内容");return;}
+
+let data=JSON.parse(localStorage.getItem('daily')||"[]");
+data.unshift(entry);
+
+localStorage.setItem('daily',JSON.stringify(data));
+
+main.value="";
+alert("done well");
+}
+
+function viewDaily(){
+goPage('dailyHistory');
+
+let data=JSON.parse(localStorage.getItem('daily')||"[]");
+
+dailyList.innerHTML=data.map(d=>`
+<div class="card">${d.time}<br>${d.main}</div>
+`).join('');
+}
+
+/* ========= 知识 ========= */
+
+function saveKnowledge(){
+let entry={time:new Date().toLocaleString(),author:author.value,idea:idea.value};
+
+if(!entry.author||!entry.idea){alert("写完整");return;}
+
+let data=JSON.parse(localStorage.getItem('knowledge')||"[]");
+data.unshift(entry);
+
+localStorage.setItem('knowledge',JSON.stringify(data));
+
+author.value="";idea.value="";
+alert("done well");
+}
+
+function viewKnowledge(){
+goPage('knowledgeHistory');
+
+let data=JSON.parse(localStorage.getItem('knowledge')||"[]");
+
+knowledgeList.innerHTML=data.map(d=>`
+<div class="card">${d.time}<br>${d.author}<br>${d.idea}</div>
+`).join('');
+}
+
+/* ========= 回收站 ========= */
+
+function loadTrash(){
+let data=JSON.parse(localStorage.getItem('trash')||"[]");
+
+trashList.innerHTML=data.length
+?data.map(d=>`
+<div class="card">
+${d.time}<br>
+来自：${d.from}<br>
+${d.text||d.idea||d.main}
+</div>`).join('')
+:"暂无内容";
+}
+
+</script>
+
+</body>
+</html>
